@@ -22,8 +22,8 @@ Following steps are envolved in calculation of optical flow:
       <code>cv2.line(Img, (pa_x, pa_y), (pb_x, pb_y), (color_b, color_g, color_r), width)</code>
 ### Examples
 1) Original data:
-![image](https://github.com/Hezihao/cv_scripts/blob/master/IMG/original_img.png)
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/original_img.png" width="325" height="400"></p>
 2) Detected features:
-![image](https://github.com/Hezihao/cv_scripts/blob/master/IMG/Harris_features.png)
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/Harris_features.png" width="325" height="400"></p>
 3) Calculated optical flow:
-![image](https://github.com/Hezihao/cv_scripts/blob/master/IMG/of_trace_with_Harris.png)
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/of_trace_with_Harris.png" width="325" height="400"></p>

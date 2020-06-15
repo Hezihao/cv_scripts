@@ -31,6 +31,11 @@ Following steps are envolved in calculation of optical flow:
 <br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/SIFT_features.png" width="325" height="400"></p>
 3) Calculated optical flow:
 <br />Harris
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/of_frame_with_Harris.png" width="325" height="400"></p>
+<br />SIFT
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/of_frame_with_SIFT.png" width="325" height="400"></p>
+4) Overall traces
+<br />Harris
 <br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/of_trace_with_Harris.png" width="325" height="400"></p>
 <br />SIFT
 <br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/of_trace_with_SIFT.png" width="325" height="400"></p>

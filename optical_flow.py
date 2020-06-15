@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # choose a feature:
-FEATURE = 'Harris'	# 'Harris' or 'SIFT'
+FEATURE = 'SIFT'	# 'Harris' or 'SIFT'
 OUTPUT_TO_FILE = True
 OUTPUT_FILE_NAME = '../../Videos/OF_trace_with_'+FEATURE+'.avi'
 
@@ -23,6 +23,9 @@ former_frame = []
 lk_params = dict(winSize=(15,15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.02))		# 10 is the number of reference points
 
 # open object file
+frame_num = 0
+all_rlv_pts = []
+all_fm_rlv  = []
 file = cv2.VideoCapture('../../Videos/output.avi')
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 if(OUTPUT_TO_FILE): out = cv2.VideoWriter(OUTPUT_FILE_NAME, fourcc, 40.0, (450,800))
@@ -69,6 +72,11 @@ while(file.isOpened()):
 					it += 1
 			relevant_pts = relevant_pts[:it]
 			former_relevant_pts = former_relevant_pts[:it]
+			all_rlv_pts.append(relevant_pts)
+			all_fm_rlv.append(former_relevant_pts)
+			if(len(all_rlv_pts)>40):
+				all_rlv_pts.pop(0)
+				all_fm_rlv.pop(0)
 		# visualization
 		'''
 		for point in points:
@@ -76,13 +84,15 @@ while(file.isOpened()):
 		'''
 		#cv2.drawKeypoints(frame,key_points,frame)							# SIFT features
 		if(len(former_frame)):												# optical flow trace
-			for i, (pt, f_pt) in enumerate(zip(relevant_pts, former_relevant_pts)):
-				cv2.circle(frame, (pt[0], pt[1]), 3, (0,0,255), 1)
-				cv2.line(frame, (pt[0],pt[1]), (f_pt[0],f_pt[1]), (0, 255, 0), 1)
+			for j, (rlv_pts, fm_rlv_pts) in enumerate(zip(all_rlv_pts, all_fm_rlv)):
+				for i, (pt, f_pt) in enumerate(zip(rlv_pts, fm_rlv_pts)):
+					if(j==len(all_rlv_pts)-1): cv2.circle(frame, (pt[0], pt[1]), 3, (0,0,255), 1)
+					cv2.line(frame, (pt[0],pt[1]), (f_pt[0],f_pt[1]), (0, 255, 0), 1)
 		cv2.imshow('Motion', frame)
 		if(OUTPUT_TO_FILE): out.write(frame)
 		former_frame = frame_g
 		former_points = points
+		frame_num += 1
 	else:
 		break
 	if(cv2.waitKey(25) &0xFF == ord('q')):

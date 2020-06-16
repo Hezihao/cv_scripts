@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 
 # choose a feature:
 FEATURE = 'SIFT'	# 'Harris' or 'SIFT'
-OUTPUT_TO_FILE = True
+OUTPUT_TO_FILE = False
 OUTPUT_FILE_NAME = '../../Videos/OF_trace_with_'+FEATURE+'.avi'
 
 # calculation of euclidian distance
 def eucl_dist(m, n, o, p):
-	return np.sqrt(m**2 + n**2 + o**2 + p**2)
+	return np.sqrt(m**2 + n**2 - o**2 - p**2)
 
 # define parameters in corner detector
 maxCorners = 10
@@ -66,12 +66,15 @@ while(file.isOpened()):
 				# 1) delete those who didn't change position in image, applied here
 				# 2) trace back from real-time frame to the former frame, 
 				#    if the point_i(calculated while trace-back)doesn't match former_point_i, discard it. More CP-consuming.
-				if eucl_dist(x, y, form_x, form_y)>2:
+			'''
+				if eucl_dist(x, y, form_x, form_y)>0:
 					relevant_pts[it] = relevant_pts[i]
 					former_relevant_pts[it] = former_relevant_pts[i]
 					it += 1
+
 			relevant_pts = relevant_pts[:it]
 			former_relevant_pts = former_relevant_pts[:it]
+			'''
 			all_rlv_pts.append(relevant_pts)
 			all_fm_rlv.append(former_relevant_pts)
 			if(len(all_rlv_pts)>40):

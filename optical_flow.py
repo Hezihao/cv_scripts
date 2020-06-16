@@ -9,7 +9,7 @@ FEATURE = 'SIFT'	# 'Harris' or 'SIFT'
 OUTPUT_TO_FILE = False
 OUTPUT_FILE_NAME = '../../Videos/OF_trace_with_'+FEATURE+'.avi'
 
-# calculation of euclidian distance
+# calculation of euclidean distance
 def eucl_dist(m, n, o, p):
 	return np.sqrt(m**2 + n**2 - o**2 - p**2)
 
@@ -58,23 +58,23 @@ while(file.isOpened()):
 			# print('Error between frames: \n'+str(error))
 			relevant_pts = p_op_flow[status==1]
 			former_relevant_pts = former_points[status==1]
+			error = error[status==1]
+			print(error)
 			it = 0
-			for i, (rel_pt, form_rel_pt) in enumerate(zip(relevant_pts, former_relevant_pts)):
+			for i, (rel_pt, form_rel_pt, err) in enumerate(zip(relevant_pts, former_relevant_pts, error)):
 				x, y = rel_pt.ravel()
 				form_x, form_y = form_rel_pt.ravel()
 				# correction of optical flow analysis
 				# 1) delete those who didn't change position in image, applied here
 				# 2) trace back from real-time frame to the former frame, 
 				#    if the point_i(calculated while trace-back)doesn't match former_point_i, discard it. More CP-consuming.
-			'''
-				if eucl_dist(x, y, form_x, form_y)>0:
+				# if eucl_dist(x, y, form_x, form_y)>0:
+				if(err < 6 and err > 1):
 					relevant_pts[it] = relevant_pts[i]
 					former_relevant_pts[it] = former_relevant_pts[i]
 					it += 1
-
 			relevant_pts = relevant_pts[:it]
 			former_relevant_pts = former_relevant_pts[:it]
-			'''
 			all_rlv_pts.append(relevant_pts)
 			all_fm_rlv.append(former_relevant_pts)
 			if(len(all_rlv_pts)>40):

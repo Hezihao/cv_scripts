@@ -59,7 +59,6 @@ while(file.isOpened()):
 			relevant_pts = p_op_flow[status==1]
 			former_relevant_pts = former_points[status==1]
 			error = error[status==1]
-			print(error)
 			it = 0
 			for i, (rel_pt, form_rel_pt, err) in enumerate(zip(relevant_pts, former_relevant_pts, error)):
 				x, y = rel_pt.ravel()

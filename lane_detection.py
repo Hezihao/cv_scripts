@@ -3,18 +3,10 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-# work-flow:
-'''
-1) undistort the raw image data from camera
-2) transfer into grayscale image, and apply Canny filter on it
-3) apply color filter on it(cause the lane line is of yellow) in order to extract line
-4) combine both and binarize it
-5) get to the bird-eye view image with warping
-6) apply sliding window onto the bird-eye view and detect centers of lines in it
-7) interpolation inbetween those nodes with 2nd(3rd) order curves
-8) map it back to normal view and overlap it with original(undistorted image)
-'''
-# setting
+
+from scipy.optimize import curve_fit
+
+# configuration of functionalities
 CALC_DISTORSION = False
 DISP_DISTORSION = False
 cal_img_prefix = '../../Images/calibration'
@@ -31,16 +23,22 @@ num = [[9,5],[9,6],[9,6],[7,4],[7,5],
 	   [9,6],[9,6],[9,6],[9,6],[9,6]]
 
 # corresponding points for doing perspective transform
-# this trapezoid should follow the shape of lane
+# this trapezoid should follow the shape of lane: trapezoid --(warp)--> rectangle
 # instead of wrapping a lane in it
-#points = np.float32([[560, 450], [710, 450], [250, 650], [1120, 650]])
-#points_warped = np.float32([[150, 0], [1150, 0], [150, 720], [1150, 720]])
 points = np.float32([[580, 460], [700, 460], [200, 720], [1096, 720]])
 points_warped = np.float32([[300, 0], [950, 0], [300, 720], [950, 720]])
+# test of camera type b
+#points = np.float32([[362, 287], [437, 287], [125, 450], [685, 450]])
+#points_warped = np.float32([[93, 0], [718, 0], [116, 450], [593, 450]])
 warp_Mat = cv2.getPerspectiveTransform(points, points_warped)
+warp_back_Mat = cv2.getPerspectiveTransform(points_warped, points)
 
 # sliding window
-window_size = [120, 90] # width, height
+global img_size
+img_size = [0,0]
+window_size = [120, 90] 		# width, height
+#lane_color = (78, 152, 235) 	# orange
+lane_color = (113, 204, 46) 	# green
 
 def calibrate_it():
 	for i in range(1,21):
@@ -93,33 +91,51 @@ def sliding_window(img):
 	img_bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 	hist_init = np.sum(img[-window_size[1]*4:, :], axis=0)
 	# get index of starting points of both lines
+	left_box = []
+	right_box = []
 	half_width = hist_init.shape[0]//2
 	half_window_width = window_size[0]//2
 	left_max_idx = np.argmax(hist_init[:half_width])
 	right_max_idx = np.argmax(hist_init[-half_width:])+half_width
-	# print(left_max_idx, right_max_idx)
+
 	# initializing position of windows
-	left_box = left_max_idx
-	right_box = right_max_idx
+	left_box.append(left_max_idx)
+	right_box.append(right_max_idx)
 	for window_t in range(img.shape[0]//window_size[1]):		# x//y can help us getting integer out of the devision
 		upper_boundary = img.shape[0]-(window_t+1)*window_size[1]
 		lower_boundary = img.shape[0]-window_t*window_size[1]
-
-		left_ltop = (left_box-half_window_width, upper_boundary)
-		left_rbot = (left_box+half_window_width, lower_boundary)
-		right_ltop = (right_box-half_window_width, upper_boundary)
-		right_rbot = (right_box+half_window_width, lower_boundary)
+		
+		left_ltop = (left_box[window_t]-half_window_width, upper_boundary)
+		left_rbot = (left_box[window_t]+half_window_width, lower_boundary)
+		right_ltop = (right_box[window_t]-half_window_width, upper_boundary)
+		right_rbot = (right_box[window_t]+half_window_width, lower_boundary)
 		cv2.rectangle(img_bgr, left_ltop, left_rbot, (0,255,0), 5)
 		cv2.rectangle(img_bgr, right_ltop, right_rbot, (0,255,255), 5)
 		# calculate mid point of next box
 		left_window = img[upper_boundary:lower_boundary, left_ltop[0]:left_rbot[0]]
 		right_window = img[upper_boundary:lower_boundary, right_ltop[0]:right_rbot[0]]
+		right_window = cv2.GaussianBlur(right_window, (15,15), 0)
 		# get mean value of horizontal coordinates of all the non-zero elements
 		# np.where() is returning 2 lists, 1st one is indicating the 1st dimension of input list
 		# here we need the column indices, which is the 2nd dimension of a piece of img element
-		if(np.sum(left_window)): left_box = int(np.mean(np.where(left_window>0)[1]))+left_ltop[0]
-		if(np.sum(right_window)): right_box = int(np.mean(np.where(right_window>0)[1]))+right_ltop[0]
-	return img_bgr
+		if(np.sum(left_window)): left_box.append(int(np.mean(np.where(left_window>0)[1]))+left_ltop[0])
+		else: left_box.append(left_box[-1])
+		if(np.sum(right_window)): right_box.append(int(np.mean(np.where(right_window>0)[1]))+right_ltop[0])
+		else: right_box.append(right_box[-1])
+	return [left_box[:-1], right_box[:-1]], img_bgr
+
+# 3rd order curve
+def f_3rd(x,a,b,c,d):
+	return a*x**3 + b*x**2 + c*x + d
+
+# curve-fitting
+def fit_lane(nodes):
+	node_v = []
+	for node, i in zip(nodes,range(len(nodes))):
+		node_v.append(img_size[0]-i*window_size[1]-window_size[1]//2)
+	params, cov = curve_fit(f_3rd, node_v, nodes)
+	return params
+
 
 if __name__ =='__main__':
 	# get distorsion parameters and camera matrix
@@ -145,6 +161,8 @@ if __name__ =='__main__':
 	while(vid.isOpened()):
 		ret, frame = vid.read()
 		if(ret):
+			# get image size
+			img_size = frame.shape
 			# transfer into grayscale image
 			frame_g = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -152,7 +170,7 @@ if __name__ =='__main__':
 			frame_undist = cv2.undistort(frame, mat, dist)
 			for point in points:
 				cv2.circle(frame_undist, (point[0],point[1]), 10, (0,0,255), -1)
-			cv2.imshow('Undistorted Image', frame_undist)
+			#cv2.imshow('Undistorted Image', frame_undist)
 			frame_g_undist = cv2.undistort(frame_g, mat, dist)
 			# extract area of relevant colors
 			frame_color_filtered = color_filter(frame_undist)
@@ -165,7 +183,19 @@ if __name__ =='__main__':
 			# warp(perspective transform) to bird-eye view image
 			frame_warped = cv2.warpPerspective(frame_preprocessed, warp_Mat, (1280, 720))
 			# get position of lines
-			frame_boxed = sliding_window(frame_warped)
+			nodes, frame_boxed = sliding_window(frame_warped)
+			# curve-fitting with detected nodes
+			frame_lane = frame_warped.copy()
+			frame_lane[:,:] = 0
+			frame_lane = cv2.cvtColor(frame_lane, cv2.COLOR_GRAY2BGR)
+			[params_left, params_right] = [fit_lane(nodes[0]), fit_lane(nodes[1])]
+			for i in range(img_size[0]):
+				cv2.line(frame_lane, (int(f_3rd(i, *params_left)), i), (int(f_3rd(i+1, *params_left)), i+1), lane_color, 50)
+				cv2.line(frame_lane, (int(f_3rd(i, *params_right)), i), (int(f_3rd(i+1, *params_right)), i+1), lane_color, 50)
+			# warp image back to FPV
+			frame_lane_back = cv2.warpPerspective(frame_lane, warp_back_Mat, (1280,720))
+			frame_lane_back = cv2.bitwise_or(frame_lane_back, frame)
+			cv2.imshow('Lane Display', frame_lane_back)
 
 			# prepare data for visualization
 			frame_origin = my_resize(frame)
@@ -176,10 +206,13 @@ if __name__ =='__main__':
 			frame_preprocessed = my_resize(cv2.cvtColor(frame_preprocessed ,cv2.COLOR_GRAY2BGR))
 			frame_warped = my_resize(cv2.cvtColor(frame_warped, cv2.COLOR_GRAY2BGR))
 			frame_boxed = my_resize(frame_boxed)
+			frame_lane = my_resize(frame_lane)
+			frame_lane_back = my_resize(frame_lane_back)
+
 			#frame_preprocessed_close = my_resize(cv2.cvtColor(frame_preprocessed_close ,cv2.COLOR_GRAY2BGR))
 			first_row = np.hstack((frame_origin, frame_undist, frame_color_filtered))
 			second_row = np.hstack((frame_edge, frame_preprocessed, frame_warped))
-			third_row = np.hstack((frame_warped, frame_warped, frame_boxed))
+			third_row = np.hstack((frame_boxed, frame_lane, frame_lane_back))		
 			img_for_disp = np.vstack((first_row, second_row, third_row))
 			cv2.imshow('Lane Detection', img_for_disp)
 		if(cv2.waitKey(25) & 0xFF == ord('q')):

@@ -91,7 +91,7 @@ def edge_filter(img):
 # apply sliding window to image
 def sliding_window(img):
 	img_bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-	hist_init = np.sum(img[-window_size[1]*3:, :], axis=0)
+	hist_init = np.sum(img[-window_size[1]*4:, :], axis=0)
 	# get index of starting points of both lines
 	half_width = hist_init.shape[0]//2
 	half_window_width = window_size[0]//2
@@ -114,12 +114,11 @@ def sliding_window(img):
 		# calculate mid point of next box
 		left_window = img[upper_boundary:lower_boundary, left_ltop[0]:left_rbot[0]]
 		right_window = img[upper_boundary:lower_boundary, right_ltop[0]:right_rbot[0]]
-		# 1) first option: get mean value of horizontal coordinates of all the non-zero elements
-		if(np.sum(left_window)): left_box = int(np.mean(np.where(left_window)[0]))+left_ltop[0]
-		if(np.sum(right_window)): right_box = int(np.mean(np.where(right_window)[0]))+right_ltop[0]
-		# 2) get peak of histogram within the box area
-
-
+		# get mean value of horizontal coordinates of all the non-zero elements
+		# np.where() is returning 2 lists, 1st one is indicating the 1st dimension of input list
+		# here we need the column indices, which is the 2nd dimension of a piece of img element
+		if(np.sum(left_window)): left_box = int(np.mean(np.where(left_window>0)[1]))+left_ltop[0]
+		if(np.sum(right_window)): right_box = int(np.mean(np.where(right_window>0)[1]))+right_ltop[0]
 	return img_bgr
 
 if __name__ =='__main__':

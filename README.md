@@ -1,7 +1,26 @@
 # cv_scripts
 Functionalities implemented with OpenCV.
 
+## Lane Detector
+### Intro:
+The following steps are included in this simple demo:
+1) undistort the raw image data from camera
+2) transfer into grayscale image, and apply Canny filter on it
+3) apply color filter on it(cause the lane line is of yellow) in order to extract line
+4) combine both and binarize it
+5) get to the bird-eye view image with warping
+6) apply sliding window onto the bird-eye view and detect centers of lines in it
+7) interpolation inbetween those nodes with 2nd(3rd) order curves
+8) map it back to normal view and overlap it with original(undistorted image)
+
+### Examples:
+1) Output of detection on warped image:
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/example_lane_detector.png" width="325" height="400"></p>
+2) Overlap with original data:
+<br /><p align="center">...in process...</p>
+
 ## Optical Flow
+### Intro:
 Following steps are envolved in calculation of optical flow:
 1) Feature extraction: Harris corners & SIFT feature are covered by now.
 <br />SIFT provides a more rich feature detection and hopefully a better optical flow.

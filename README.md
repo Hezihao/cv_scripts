@@ -15,7 +15,7 @@ The following steps are included in this simple demo:
 
 ### Examples:
 1) Output of detection on warped image:
-<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/example_lane_detector.png" width="325" height="400"></p>
+<br /><p align="center"><img src="https://github.com/Hezihao/cv_scripts/blob/master/IMG/example_lane_detector.png" width="650" height="400"></p>
 2) Overlap with original data:
 <br /><p align="center">...in process...</p>
 

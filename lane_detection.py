@@ -194,7 +194,7 @@ if __name__ =='__main__':
 				cv2.line(frame_lane, (int(f_3rd(i, *params_right)), i), (int(f_3rd(i+1, *params_right)), i+1), lane_color, 50)
 			# warp image back to FPV
 			frame_lane_back = cv2.warpPerspective(frame_lane, warp_back_Mat, (1280,720))
-			frame_lane_back = cv2.bitwise_or(frame_lane_back, frame)
+			frame_lane_back = cv2.bitwise_or(frame_lane_back, frame_undist)
 			cv2.imshow('Lane Display', frame_lane_back)
 
 			# prepare data for visualization

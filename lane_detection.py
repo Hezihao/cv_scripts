@@ -34,11 +34,13 @@ warp_Mat = cv2.getPerspectiveTransform(points, points_warped)
 warp_back_Mat = cv2.getPerspectiveTransform(points_warped, points)
 
 # sliding window
-global img_size
-img_size = [0,0]
-window_size = [120, 90] 		# width, height
+# img_size = []
+neighborhood_radius = 120//2
+window_size = [160, 90] 		# width, height
 #lane_color = (78, 152, 235) 	# orange
 lane_color = (113, 204, 46) 	# green
+trust = [[],[]]
+nodes_reliable = [[],[]]
 
 def calibrate_it():
 	for i in range(1,21):
@@ -88,19 +90,34 @@ def edge_filter(img):
 
 # apply sliding window to image
 def sliding_window(img):
+	global trust
+
 	img_bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-	hist_init = np.sum(img[-window_size[1]*4:, :], axis=0)
+	hist_init = np.sum(img[int(-window_size[1])*4:, :], axis=0)
 	# get index of starting points of both lines
 	left_box = []
 	right_box = []
+	trust_buff = [[],[]]
 	half_width = hist_init.shape[0]//2
 	half_window_width = window_size[0]//2
-	left_max_idx = np.argmax(hist_init[:half_width])
-	right_max_idx = np.argmax(hist_init[-half_width:])+half_width
-
+	if(len(nodes_reliable[0])):
+		nodes_reliable[0][0] = np.argmax(hist_init[:half_width])
+		ll_bound = nodes_reliable[0][0]-neighborhood_radius
+		lr_bound = nodes_reliable[0][0]+neighborhood_radius
+		first_window = img[-window_size[1]:, ll_bound:lr_bound]
+		if(np.sum(first_window)>50000):	nodes_reliable[0][0] = int(np.mean(np.where(first_window>0)[1]))+ll_bound
+	else:
+		nodes_reliable[0].append(np.argmax(hist_init[:half_width]))
+	if(len(nodes_reliable[1])):
+		rl_bound = nodes_reliable[1][0]-neighborhood_radius
+		rr_bound = nodes_reliable[1][0]+neighborhood_radius
+		first_window = img[-window_size[1]:, rl_bound:rr_bound]
+		if(np.sum(first_window)>50000):	nodes_reliable[1][0] = int(np.mean(np.where(first_window>0)[1]))+rl_bound
+	else:
+		nodes_reliable[1].append(np.argmax(hist_init[-half_width:])+half_width)
 	# initializing position of windows
-	left_box.append(left_max_idx)
-	right_box.append(right_max_idx)
+	left_box.append(nodes_reliable[0][0])
+	right_box.append(nodes_reliable[1][0])
 	for window_t in range(img.shape[0]//window_size[1]):		# x//y can help us getting integer out of the devision
 		upper_boundary = img.shape[0]-(window_t+1)*window_size[1]
 		lower_boundary = img.shape[0]-window_t*window_size[1]
@@ -118,10 +135,19 @@ def sliding_window(img):
 		# get mean value of horizontal coordinates of all the non-zero elements
 		# np.where() is returning 2 lists, 1st one is indicating the 1st dimension of input list
 		# here we need the column indices, which is the 2nd dimension of a piece of img element
-		if(np.sum(left_window)): left_box.append(int(np.mean(np.where(left_window>0)[1]))+left_ltop[0])
-		else: left_box.append(left_box[-1])
-		if(np.sum(right_window)): right_box.append(int(np.mean(np.where(right_window>0)[1]))+right_ltop[0])
-		else: right_box.append(right_box[-1])
+		if(np.sum(left_window)>50000): 
+			left_box.append(int(np.mean(np.where(left_window>0)[1]))+left_ltop[0])
+			trust_buff[0].append(1)
+		else: 
+			left_box.append(left_box[-1])
+			trust_buff[0].append(0)
+		if(np.sum(right_window)>50000):
+			right_box.append(int(np.mean(np.where(right_window>0)[1]))+right_ltop[0])
+			trust_buff[1].append(1)
+		else:
+			right_box.append(right_box[-1])
+			trust_buff[1].append(0)
+	trust = trust_buff
 	return [left_box[:-1], right_box[:-1]], img_bgr
 
 # 3rd order curve
@@ -130,14 +156,19 @@ def f_3rd(x,a,b,c,d):
 
 # curve-fitting
 def fit_lane(nodes):
-	node_v = []
+	nodes_v = []
+	nodes_u = []
 	for node, i in zip(nodes,range(len(nodes))):
-		node_v.append(img_size[0]-i*window_size[1]-window_size[1]//2)
-	params, cov = curve_fit(f_3rd, node_v, nodes)
+		if(node):
+			nodes_u.append(node)
+			nodes_v.append(img_size[0]-i*window_size[1]-window_size[1]//2)
+	params, cov = curve_fit(f_3rd, nodes_v, nodes_u)
 	return params
 
 
 if __name__ =='__main__':
+	global img_size
+
 	# get distorsion parameters and camera matrix
 	if(CALC_DISTORSION):
 		ret, mat, dist = calibrate_it()
@@ -184,19 +215,31 @@ if __name__ =='__main__':
 			frame_warped = cv2.warpPerspective(frame_preprocessed, warp_Mat, (1280, 720))
 			# get position of lines
 			nodes, frame_boxed = sliding_window(frame_warped)
+			for i in range(2):
+				nodes_lis = nodes[i]
+				trust_lis = trust[i]
+				for num, (node, tr) in enumerate(zip(nodes_lis, trust_lis)):
+					if(not len(nodes_reliable[i])==img_size[0]//window_size[1]):
+						if(tr):	nodes_reliable[i].append(node)
+						else: nodes_reliable[i].append(0)
+					else:
+						if(tr): 
+							nodes_reliable[i][num] = node
 			# curve-fitting with detected nodes
 			frame_lane = frame_warped.copy()
 			frame_lane[:,:] = 0
 			frame_lane = cv2.cvtColor(frame_lane, cv2.COLOR_GRAY2BGR)
-			[params_left, params_right] = [fit_lane(nodes[0]), fit_lane(nodes[1])]
+			#[params_left, params_right] = [fit_lane(nodes[0]), fit_lane(nodes[1])]
+			[params_left, params_right] = [fit_lane(nodes_reliable[0]), fit_lane(nodes_reliable[1])]
 			for i in range(img_size[0]):
 				cv2.line(frame_lane, (int(f_3rd(i, *params_left)), i), (int(f_3rd(i+1, *params_left)), i+1), lane_color, 50)
 				cv2.line(frame_lane, (int(f_3rd(i, *params_right)), i), (int(f_3rd(i+1, *params_right)), i+1), lane_color, 50)
 			# warp image back to FPV
 			frame_lane_back = cv2.warpPerspective(frame_lane, warp_back_Mat, (1280,720))
 			frame_lane_back = cv2.bitwise_or(frame_lane_back, frame_undist)
-			cv2.imshow('Lane Display', frame_lane_back)
-
+			for i, pt in enumerate(nodes_reliable[1]):
+				cv2.circle(frame_lane, (pt, 720-i*90-45), 5, (0,0,255), -1)
+			cv2.imshow('Overlapping Result', frame_lane_back)
 			# prepare data for visualization
 			frame_origin = my_resize(frame)
 			frame_g = my_resize(cv2.cvtColor(frame_g, cv2.COLOR_GRAY2BGR))
@@ -212,8 +255,8 @@ if __name__ =='__main__':
 			#frame_preprocessed_close = my_resize(cv2.cvtColor(frame_preprocessed_close ,cv2.COLOR_GRAY2BGR))
 			first_row = np.hstack((frame_origin, frame_undist, frame_color_filtered))
 			second_row = np.hstack((frame_edge, frame_preprocessed, frame_warped))
-			third_row = np.hstack((frame_boxed, frame_lane, frame_lane_back))		
+			third_row = np.hstack((frame_boxed, frame_lane, frame_lane_back))
 			img_for_disp = np.vstack((first_row, second_row, third_row))
 			cv2.imshow('Lane Detection', img_for_disp)
-		if(cv2.waitKey(25) & 0xFF == ord('q')):
+		if(cv2.waitKey(25)& 0xFF == ord('q')):
 			break

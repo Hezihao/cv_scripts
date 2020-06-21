@@ -150,6 +150,10 @@ def sliding_window(img):
 	trust = trust_buff
 	return [left_box[:-1], right_box[:-1]], img_bgr
 
+# 2nd order curve
+def f_2nd(x,a,b,c):
+	return a*x**2 + b*x + c
+
 # 3rd order curve
 def f_3rd(x,a,b,c,d):
 	return a*x**3 + b*x**2 + c*x + d
@@ -162,7 +166,8 @@ def fit_lane(nodes):
 		if(node):
 			nodes_u.append(node)
 			nodes_v.append(img_size[0]-i*window_size[1]-window_size[1]//2)
-	params, cov = curve_fit(f_3rd, nodes_v, nodes_u)
+	#params, cov = curve_fit(f_3rd, nodes_v, nodes_u)
+	params, cov = curve_fit(f_2nd, nodes_v, nodes_u)
 	return params
 
 
@@ -232,8 +237,10 @@ if __name__ =='__main__':
 			#[params_left, params_right] = [fit_lane(nodes[0]), fit_lane(nodes[1])]
 			[params_left, params_right] = [fit_lane(nodes_reliable[0]), fit_lane(nodes_reliable[1])]
 			for i in range(img_size[0]):
-				cv2.line(frame_lane, (int(f_3rd(i, *params_left)), i), (int(f_3rd(i+1, *params_left)), i+1), lane_color, 50)
-				cv2.line(frame_lane, (int(f_3rd(i, *params_right)), i), (int(f_3rd(i+1, *params_right)), i+1), lane_color, 50)
+				#cv2.line(frame_lane, (int(f_3rd(i, *params_left)), i), (int(f_3rd(i+1, *params_left)), i+1), lane_color, 50)
+				#cv2.line(frame_lane, (int(f_3rd(i, *params_right)), i), (int(f_3rd(i+1, *params_right)), i+1), lane_color, 50)
+				cv2.line(frame_lane, (int(f_2nd(i, *params_left)), i), (int(f_2nd(i+1, *params_left)), i+1), lane_color, 50)
+				cv2.line(frame_lane, (int(f_2nd(i, *params_right)), i), (int(f_2nd(i+1, *params_right)), i+1), lane_color, 50)			
 			# warp image back to FPV
 			frame_lane_back = cv2.warpPerspective(frame_lane, warp_back_Mat, (1280,720))
 			frame_lane_back = cv2.bitwise_or(frame_lane_back, frame_undist)
